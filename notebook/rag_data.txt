@@ -1,0 +1,34 @@
+Recent AI developments — summary (compiled Nov 6, 2025)
+
+Overview:
+- This file summarizes recent developments (2024–2025) in large language models (LLMs), embedding models, and agentic AI (agent frameworks, products, and industry trends). Each major claim includes a short citation tag for reference to original reporting.
+
+1) New / notable LLM releases and trends
+- LLaMA / Llama 4 family: Meta's Llama 4 (and follow-ups like Llama 4 Scout / Maverick) expanded multimodal capabilities and used mixture-of-experts architectures to scale efficiency and add image/video understanding. citeturn0search0turn0search9
+- Google's Gemini family (Gemini 2.5 / Gemma variants) and related Gemma models remained major contenders in 2025 with multimodal and on-device focuses. citeturn0search6turn0search9
+- OpenAI and other firms continued iterative releases (GPT series and O-series variants), with community leaderboards showing GPT-5/GPT-4 derivatives and vendor competitors like Grok 4 and Claude 4 across reasoning/coding benchmarks. citeturn0search6turn0search12
+- Alibaba (Qwen3), Anthropic (Claude 4: Sonnet & Opus), Mistral, Falcon, and other open-source and proprietary models continued to expand available choices with varied licensing and sizes. citeturn0search9turn0search2
+
+2) Embedding models (2024–2025 highlights)
+- OpenAI introduced the text-embedding-3 family (3-small and 3-large) and continued embedding API updates aimed at lower cost and better performance for retrieval/RAG use cases. citeturn0search5
+- Specialized and on-device embedding releases (e.g., Google's EmbeddingGemma announced Sept 2025) targeted small-footprint, multilingual embeddings for on-device semantic search and RAG scenarios. citeturn0search13
+- The embedding ecosystem matured: cloud APIs (OpenAI, Cohere, Google), new competitors (Voyage AI, Ollama, Jina), and open-weight models offered tradeoffs between latency, cost, and privacy. Benchmarks and guides in 2025 emphasized Recall@k metrics, p95 latency, and quantization/optimization for production. citeturn0search1turn0search7turn0search3
+
+3) Agentic AI — frameworks, products, and industry trends
+- Agentic AI (systems that autonomously plan and execute multi-step tasks) was a prominent strategic trend in 2025. Vendors rolled out SDKs, production-focused toolkits, and enterprise agents (e.g., Anthropic 'Skills', OpenAI AgentKit announcements reported alongside other vendor efforts). citeturn0news37turn0news37
+- Major platform and vertical integrations: companies like Dalet (media workflows), Salesforce (Agentforce / agent frameworks), IBM, Oracle, and others published guides and product offerings to build or host agentic capabilities for specific enterprise workflows. citeturn0news39turn0search8turn0search11
+- Caution & realism: industry analysts warned of 'agent washing' and predicted many agentic projects would be scrapped or fail to deliver ROI without clear business value and engineering investment. Gartner estimated over 40% of agentic AI projects might be scrapped by end of 2027 due to cost and unclear value. citeturn0news29
+
+4) Practical takeaways for engineers, product managers, and researchers
+- Choose the right model family by task: reasoning/math/coding tasks still favor top-tier closed models (GPT family, Grok) on many benchmarks; Llama and other open models offer customization and lower-cost fine-tuning. citeturn0search6turn0search12
+- For retrieval and RAG, benchmark embeddings on your data (Recall@k, latency) and consider hybrid pipelines (cheap+high-quality embeddings, coarse-to-fine retrieval). Quantize embeddings and use two-stage retrieval to control cost/latency. citeturn0search3turn0search1
+- When building agentic systems: start with clear KPIs, limit scope (one vertical workflow), invest in orchestration, tool safety & monitoring, and avoid premature generalization claims (watch for 'agent washing'). Consider SDKs from major vendors but plan for heavy engineering and maintenance. citeturn0news29turn0search11
+
+5) Further reading and recent sources (selected)
+- Wikipedia: List of large language models (updated through 2025). citeturn0search9
+- OpenAI: New embedding models and API updates (text-embedding-3 announcement). citeturn0search5
+- Reuters: Gartner analysis on agentic AI project failures and market caution (Jun 25, 2025). citeturn0news29
+- The Verge: Anthropic 'Skills' feature and Claude agent developments (recent coverage). citeturn0news37
+- Artsmart / Elephas / Medium guides: comparative overviews of embedding model performance and recommendations (2025 summaries). citeturn0search1turn0search7turn0search3
+
+(End of file)
