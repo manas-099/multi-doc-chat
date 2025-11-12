@@ -7,6 +7,9 @@ from MultiDocChat.logger import GLOBAL_LOGGER as log
 
 from MultiDocChat.exceptions.custom_exception import DocumentPortalException
 from langchain_google_genai import  ChatGoogleGenerativeAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+
 
 
 class ApiKeysManager:
@@ -56,6 +59,9 @@ class ModelLoader:
             try:
                   model_name=self.config['embedding_model']['model_name']
                   log.info("Loading embedding model",model=model_name)
+                  
+                  return GoogleGenerativeAIEmbeddings(model=model_name,
+                                                google_api_key=self.api_key_manager.get("GOOGLE_API_KEY"))
             except Exception as e:
                   log.error("Error loading embedding model",error=str(e))
                   raise DocumentPortalException("Failed to laod Embeddingmodel",sys)
