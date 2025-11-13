@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MultiDocChat - AI Document Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/multidocchat-css.css') }}" />
+  <meta name="color-scheme" content="light dark" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="url(#gradient)"/>
+            <path d="M10 12h12M10 16h8M10 20h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0%" stop-color="#667eea"/>
+                <stop offset="100%" stop-color="#764ba2"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <h1>MultiDocChat</h1>
+        </div>
+        <div class="header-status">
+          <span class="status-badge" id="status-badge">Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Upload Section -->
+      <section id="uploader" class="upload-section">
+        <div class="section-header">
+          <h2>Upload Your Documents</h2>
+          <p class="section-description">Upload PDF, TXT, or DOCX files to start chatting with your documents</p>
+        </div>
+        
+        <form id="upload-form" enctype="multipart/form-data">
+          <div id="dropzone" class="dropzone">
+            <div class="dropzone-content">
+              <svg class="upload-icon" width="64" height="64" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="30" fill="#f0f4ff"/>
+                <path d="M32 20v24M20 32l12-12 12 12" stroke="#667eea" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p class="dropzone-title">Drag and drop your files here</p>
+              <p class="dropzone-subtitle">or</p>
+              <button type="button" class="btn btn-primary" id="choose-files-btn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Choose Files
+              </button>
+              <input id="file-input" type="file" name="files" multiple style="display:none;" />
+              <p class="file-types">Supports: PDF, TXT, DOCX</p>
+            </div>
+          </div>
+
+          <!-- File List -->
+          <div id="file-list" class="file-list" style="display:none;"></div>
+
+          <!-- Upload Progress -->
+          <div id="upload-progress" class="upload-progress" style="display:none;">
+            <div class="progress-info">
+              <span class="progress-text">Uploading and indexing documents...</span>
+              <span class="progress-percentage">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+          </div>
+
+          <button id="upload-btn" class="btn btn-primary btn-large" type="submit">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 14V6M6 10l4-4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Upload & Index Documents
+          </button>
+        </form>
+      </section>
+
+      <!-- Chat Section -->
+      <section id="chat" class="chat-section" style="display:none;">
+        <div class="section-header">
+          <h2>Chat with Your Documents</h2>
+          <button id="new-session-btn" class="btn btn-secondary" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            New Session
+          </button>
+        </div>
+
+        <!-- Messages Container -->
+        <div id="messages" class="messages">
+          <div class="welcome-message">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="22" fill="#f0f4ff"/>
+              <path d="M24 16v16M16 24h16" stroke="#667eea" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <h3>Ready to help!</h3>
+            <p>Ask me anything about your uploaded documents</p>
+          </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="typing-indicator" class="typing-indicator" style="display:none;">
+          <div class="bubble assistant typing-bubble">
+            <div class="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message Composer -->
+        <div class="composer">
+          <textarea 
+            id="message-input" 
+            rows="1" 
+            placeholder="Ask a question about your documents..."
+            maxlength="2000"
+          ></textarea>
+          <button id="send-btn" class="btn btn-icon btn-primary" type="button">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M18 2L9 11M18 2l-6 16-3-7-7-3 16-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+      
+      console.log('MultiDocChat UI Loaded');
+      
+      const $ = (sel) => document.querySelector(sel);
+      let sessionId = '';
+      let progressInterval = null;
+
+      // Check if elements exist
+      function waitForElement(selector, callback) {
+        const element = $(selector);
+        if (element) {
+          callback(element);
+        } else {
+          setTimeout(() => waitForElement(selector, callback), 100);
+        }
+      }
+
+      // Initialize session from localStorage
+      function initSession() {
+        try {
+          const stored = localStorage.getItem('mdc_session_id');
+          console.log('Stored session:', stored);
+          if (stored && stored !== 'null' && stored !== 'undefined') {
+            sessionId = stored;
+            const uploader = $('#uploader');
+            const chat = $('#chat');
+            if (uploader) uploader.style.display = 'none';
+            if (chat) chat.style.display = 'block';
+            updateStatus('Active');
+          }
+        } catch (e) {
+          console.error('localStorage error:', e);
+        }
+      }
+
+      // File input handling
+      function setupFileInput() {
+        const fileInput = $('#file-input');
+        const chooseBtn = $('#choose-files-btn');
+        const dropzone = $('#dropzone');
+
+        if (!fileInput || !chooseBtn || !dropzone) {
+          console.error('Required elements not found');
+          return;
+        }
+
+        console.log('Setting up file input...');
+
+        // Click handler for choose files button
+        chooseBtn.onclick = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Choose files clicked');
+          fileInput.click();
+        };
+
+        // Click handler for dropzone
+        dropzone.onclick = function(e) {
+          if (!e.target.closest('.btn')) {
+            console.log('Dropzone clicked');
+            fileInput.click();
+          }
+        };
+
+        // File selection handler
+        fileInput.onchange = function() {
+          console.log('Files selected:', fileInput.files.length);
+          displayFileList();
+        };
+
+        // Drag and drop handlers
+        dropzone.ondragover = function(e) { 
+          e.preventDefault(); 
+          dropzone.classList.add('dragover'); 
+        };
+
+        dropzone.ondragleave = function(e) {
+          e.preventDefault();
+          dropzone.classList.remove('dragover');
+        };
+
+        dropzone.ondrop = function(e) {
+          e.preventDefault();
+          dropzone.classList.remove('dragover');
+          fileInput.files = e.dataTransfer.files;
+          console.log('Files dropped:', fileInput.files.length);
+          displayFileList();
+        };
+      }
+
+      // Display selected files
+      function displayFileList() {
+        const fileList = $('#file-list');
+        const input = $('#file-input');
+        
+        if (!fileList || !input) return;
+        
+        if (!input.files || input.files.length === 0) {
+          fileList.style.display = 'none';
+          return;
+        }
+
+        fileList.innerHTML = '';
+        fileList.style.display = 'block';
+        
+        Array.from(input.files).forEach((file) => {
+          const item = document.createElement('div');
+          item.className = 'file-item';
+          item.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M6 2h8l4 4v10a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="#667eea" stroke-width="1.5" fill="none"/>
+            </svg>
+            <span class="file-name">${escapeHtml(file.name)}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
+          `;
+          fileList.appendChild(item);
+        });
+      }
+
+      // Upload files
+      async function uploadFiles(evt) {
+        evt.preventDefault();
+        
+        const input = $('#file-input');
+        const files = input.files;
+        
+        console.log('Upload initiated, files:', files ? files.length : 0);
+        
+        if (!files || files.length === 0) {
+          toast('Please choose at least one file', 'warning');
+          return;
+        }
+
+        showUploadProgress();
+        updateStatus('Indexing');
+        
+        try {
+          const fd = new FormData();
+          for (let i = 0; i < files.length; i++) {
+            fd.append('files', files[i]);
+            console.log('Added file:', files[i].name);
+          }
+          
+          // Animate progress
+          animateProgress();
+          
+          console.log('Sending upload request...');
+          const res = await fetch('/upload', { 
+            method: 'POST', 
+            body: fd 
+          });
+          
+          console.log('Upload response status:', res.status);
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.detail || 'Upload failed');
+          }
+          
+          const data = await res.json();
+          console.log('Upload successful:', data);
+          
+          sessionId = data.session_id;
+          try {
+            localStorage.setItem('mdc_session_id', sessionId);
+          } catch (e) {
+            console.warn('Could not save to localStorage:', e);
+          }
+          
+          setProgress(100);
+          
+          setTimeout(() => {
+            hideUploadProgress();
+            const uploader = $('#uploader');
+            const chat = $('#chat');
+            if (uploader) uploader.style.display = 'none';
+            if (chat) chat.style.display = 'block';
+            updateStatus('Active');
+            toast('Documents indexed successfully! Start chatting now.', 'success');
+            clearWelcomeMessage();
+          }, 500);
+          
+        } catch (e) {
+          console.error('Upload error:', e);
+          hideUploadProgress();
+          updateStatus('Error');
+          toast(e.message || 'Indexing failed. Please try again.', 'error');
+        }
+      }
+
+      // Send chat message
+      async function sendMessage() {
+        const input = $('#message-input');
+        if (!input) return;
+        
+        const text = input.value.trim();
+        
+        console.log('Send message, sessionId:', sessionId, 'text:', text);
+        
+        if (!sessionId) { 
+          toast('Please upload documents first.', 'warning'); 
+          return; 
+        }
+        
+        if (!text) {
+          return;
+        }
+
+        appendMessage('user', text);
+        input.value = '';
+        input.style.height = 'auto';
+        showTypingIndicator();
+
+        try {
+          console.log('Sending chat request...');
+          const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              session_id: sessionId, 
+              message: text 
+            })
+          });
+          
+          console.log('Chat response status:', res.status);
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.detail || 'Chat failed');
+          }
+          
+          const data = await res.json();
+          console.log('Chat response:', data);
+          
+          hideTypingIndicator();
+          appendMessage('assistant', data.answer);
+          
+        } catch (e) {
+          console.error('Chat error:', e);
+          hideTypingIndicator();
+          toast(e.message || 'Failed to get response. Please try again.', 'error');
+        }
+      }
+
+      // Append message to chat
+      function appendMessage(role, text) {
+        clearWelcomeMessage();
+        
+        const container = $('#messages');
+        if (!container) return;
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.className = 'message-wrapper ' + role;
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble ' + role;
+        bubble.textContent = text;
+        
+        messageWrapper.appendChild(bubble);
+        container.appendChild(messageWrapper);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // UI Helper Functions
+      function clearWelcomeMessage() {
+        const welcome = $('.welcome-message');
+        if (welcome) {
+          welcome.remove();
+        }
+      }
+
+      function showTypingIndicator() {
+        const indicator = $('#typing-indicator');
+        const messages = $('#messages');
+        if (indicator) indicator.style.display = 'block';
+        if (messages) messages.scrollTop = messages.scrollHeight;
+      }
+
+      function hideTypingIndicator() {
+        const indicator = $('#typing-indicator');
+        if (indicator) indicator.style.display = 'none';
+      }
+
+      function showUploadProgress() {
+        const progress = $('#upload-progress');
+        const btn = $('#upload-btn');
+        if (progress) progress.style.display = 'block';
+        if (btn) btn.disabled = true;
+        setProgress(0);
+      }
+
+      function hideUploadProgress() {
+        const progress = $('#upload-progress');
+        const btn = $('#upload-btn');
+        if (progress) progress.style.display = 'none';
+        if (btn) btn.disabled = false;
+        if (progressInterval) {
+          clearInterval(progressInterval);
+          progressInterval = null;
+        }
+      }
+
+      function setProgress(percent) {
+        const fill = $('#progress-fill');
+        const text = $('.progress-percentage');
+        if (fill) fill.style.width = percent + '%';
+        if (text) text.textContent = Math.round(percent) + '%';
+      }
+
+      function animateProgress() {
+        if (progressInterval) clearInterval(progressInterval);
+        
+        let progress = 0;
+        progressInterval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress >= 90) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+            setProgress(90);
+          } else {
+            setProgress(progress);
+          }
+        }, 200);
+      }
+
+      function updateStatus(status) {
+        const badge = $('#status-badge');
+        if (!badge) return;
+        badge.textContent = status;
+        badge.className = 'status-badge status-' + status.toLowerCase();
+      }
+
+      function toast(msg, type) {
+        type = type || 'info';
+        const el = $('#toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'toast toast-' + type + ' toast-show';
+        setTimeout(() => {
+          el.classList.remove('toast-show');
+        }, 3000);
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // New session handler
+      function handleNewSession() {
+        if (confirm('Start a new session? This will clear your current chat.')) {
+          try {
+            localStorage.removeItem('mdc_session_id');
+          } catch (e) {
+            console.warn('Could not clear localStorage:', e);
+          }
+          sessionId = '';
+          location.reload();
+        }
+      }
+
+      // Initialize on page load
+      function init() {
+        console.log('Initializing MultiDocChat...');
+        
+        initSession();
+        setupFileInput();
+
+        // Form submit handler
+        const uploadForm = $('#upload-form');
+        if (uploadForm) {
+          uploadForm.onsubmit = uploadFiles;
+        }
+
+        // Send button handler
+        const sendBtn = $('#send-btn');
+        if (sendBtn) {
+          sendBtn.onclick = sendMessage;
+        }
+
+        // Message input handlers
+        const messageInput = $('#message-input');
+        if (messageInput) {
+          // Auto-resize textarea
+          messageInput.oninput = function() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+          };
+
+          // Enter key to send
+          messageInput.onkeydown = function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { 
+              e.preventDefault(); 
+              sendMessage(); 
+            }
+          };
+        }
+
+        // New session button
+        const newSessionBtn = $('#new-session-btn');
+        if (newSessionBtn) {
+          newSessionBtn.onclick = handleNewSession;
+        }
+        
+        console.log('MultiDocChat initialized successfully');
+      }
+
+      // Wait for DOM to be ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>

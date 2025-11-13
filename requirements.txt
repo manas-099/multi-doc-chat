@@ -2,7 +2,7 @@ ipykernel
 python-dotenv
 
 structlog
-
+pypdf
 langchain
 langchain-community
 langchain-core

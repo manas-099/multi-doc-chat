@@ -10,15 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-
+# MultiDocChat imports
 from MultiDocChat.exceptions.custom_exception import DocumentPortalException
 from MultiDocChat.src.document_ingetion.ingest import ChatIngestor
 from MultiDocChat.src.document_chat.retriver import ConversationalRAG
 from langchain_core.messages import HumanMessage, AIMessage
+
 # ----------------------------
 # FastAPI initialization
 # ----------------------------
-app = FastAPI(title="MultiDocChat", version="0.1.0")
+app = FastAPI(title="MultiDocChat", version="0.1.1")
 
 # CORS (optional for local dev)
 app.add_middleware(
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Static and templates
 BASE_DIR = Path(__file__).resolve().parent
@@ -76,6 +78,24 @@ class ChatResponse(BaseModel):
 
 
 # ----------------------------
+# Utility: Check required dependencies
+# ----------------------------
+def check_dependencies():
+    """Check that required Python packages are installed."""
+    missing = []
+    try:
+        import pypdf  # noqa
+    except ImportError:
+        missing.append("pypdf")
+
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing required packages: {', '.join(missing)}. "
+                   f"Please install them using 'pip install {' '.join(missing)}'."
+        )
+
+# ----------------------------
 # Routes
 # ----------------------------
 @app.get("/health")
@@ -93,14 +113,18 @@ async def upload(files: List[UploadFile] = File(...)) -> UploadResponse:
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
+    # Ensure required packages are installed
+    check_dependencies()
+
     try:
-        # Wrap FastAPI files to preserve filename/ext and provide a read buffer
+        # Wrap FastAPI files
         wrapped_files = [FastAPIFileAdapter(f) for f in files]
 
+        # Initialize ingestion pipeline
         ingestor = ChatIngestor(use_session_dirs=True)
         session_id = ingestor.session_id
 
-        # Save, load, split, embed, and write FAISS index with MMR
+        # Save, load, split, embed, and index documents
         ingestor.built_retriver(
             uploaded_files=wrapped_files,
             search_type="mmr",
@@ -108,29 +132,42 @@ async def upload(files: List[UploadFile] = File(...)) -> UploadResponse:
             lambda_mult=0.5
         )
 
-        # Initialize empty history for this session
+        # Initialize empty chat history
         SESSIONS[session_id] = []
 
-        return UploadResponse(session_id=session_id, indexed=True, message="Indexing complete with MMR")
+        return UploadResponse(
+            session_id=session_id,
+            indexed=True,
+            message="Indexing complete with MMR"
+        )
+
     except DocumentPortalException as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
+
     session_id = req.session_id
     message = req.message.strip()
+
     if not session_id or session_id not in SESSIONS:
         raise HTTPException(status_code=400, detail="Invalid or expired session_id. Re-upload documents.")
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     try:
-        # Build RAG and load retriever from persisted FAISS with MMR
+        # Build RAG and load retriever
         rag = ConversationalRAG(session_id=session_id)
-        index_path = f"faiss_index/{session_id}"
+    
+        index_path = f"faiss_base/{session_id}"
+
         rag.load_retriever_from_faiss(
             index_path=index_path,
             search_type="mmr",
@@ -138,7 +175,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
             lambda_mult=0.5
         )
 
-        # Use simple in-memory history and convert to BaseMessage list
+        # Prepare chat history
         simple = SESSIONS.get(session_id, [])
         lc_history = []
         for m in simple:
@@ -149,22 +186,35 @@ async def chat(req: ChatRequest) -> ChatResponse:
             elif role == "assistant":
                 lc_history.append(AIMessage(content=content))
 
+        # Generate answer
         answer = rag.invoke(message, chat_history=lc_history)
 
-        # Update history
+        # Update in-memory session
         simple.append({"role": "user", "content": message})
         simple.append({"role": "assistant", "content": answer})
         SESSIONS[session_id] = simple
 
         return ChatResponse(answer=answer)
+
     except DocumentPortalException as e:
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Chat failed: {e}")
 
 
-# Uvicorn entrypoint for `python main.py` (optional)
+
+
+# ----------------------------
+# Run app (local entrypoint)
+# ----------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
 
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000")),
+        reload=True
+    )
