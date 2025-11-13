@@ -20,6 +20,6 @@ fastapi
 uvicorn
 Jinja2
 
-langsmith
+ 
 
 pandas

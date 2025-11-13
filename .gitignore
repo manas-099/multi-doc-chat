@@ -3,5 +3,6 @@
 logs
 data
 faiss_index
+faiss_base
 notebook/data
 notebook/faiss_index
